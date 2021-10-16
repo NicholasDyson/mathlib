@@ -224,6 +224,12 @@ protected def copy (K : subgroup G) (s : set G) (hs : s = K) : subgroup G :=
   mul_mem' := hs.symm ▸ K.mul_mem',
   inv_mem' := hs.symm ▸ K.inv_mem' }
 
+@[simp] lemma coe_copy (K : subgroup G) (s : set G) (hs : s = ↑K) :
+  (K.copy s hs : set G) = s := rfl
+
+lemma copy_eq (K : subgroup G) (s : set G) (hs : s = ↑K) : K.copy s hs = K :=
+set_like.coe_injective hs
+
 /-- Two subgroups are equal if they have the same elements. -/
 @[ext, to_additive "Two `add_subgroup`s are equal if they have the same elements."]
 theorem ext {H K : subgroup G} (h : ∀ x, x ∈ H ↔ x ∈ K) : H = K := set_like.ext h
@@ -401,6 +407,8 @@ instance : inhabited (subgroup G) := ⟨⊥⟩
 @[simp, to_additive] lemma coe_top : ((⊤ : subgroup G) : set G) = set.univ := rfl
 
 @[simp, to_additive] lemma coe_bot : ((⊥ : subgroup G) : set G) = {1} := rfl
+
+@[to_additive] instance : unique (⊥ : subgroup G) := ⟨⟨1⟩, λ g, subtype.ext g.2⟩
 
 @[to_additive] lemma eq_bot_iff_forall : H = ⊥ ↔ ∀ x ∈ H, x = (1 : G) :=
 begin
