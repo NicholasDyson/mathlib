@@ -6,6 +6,7 @@ Authors: Junyan Xu
 import algebraic_geometry.Spec
 import algebraic_geometry.ringed_space
 import topology.sheaves.sheaf_condition.basis_le
+--import topology.sheaves.sheaf_condition.pairwise_intersections
 
 /-!
 # Adjunction between `Γ` and `Spec`
@@ -116,6 +117,9 @@ def to_Γ_Spec_sheaf_app (r : Γ' X) := by {
   swap 5, exact localization.is_localization,
   exact (basic_open_iso _ r).hom ≫ l }
 
+/- characterization of the sheaf morphism on basic opens,
+   direction → used in proving naturality of the morphism,
+   direction ← ... -/
 lemma to_Γ_Spec_sheaf_app_prop (r : Γ' X) :
   ∀ f, to_open _ (basic_open r) ≫ f = X.to_opens_map_basic_open r
   ↔ f = X.to_Γ_Spec_sheaf_app r :=
