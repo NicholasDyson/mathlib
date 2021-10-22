@@ -93,7 +93,8 @@ def lim_basis_le : Type (max u v) :=
 lemma mono_to_cover_of_sheaf (hF : F.is_sheaf_opens_le_cover)
    (hU : supr B.f = U) (A : C) (f g : A ⟶ F.obj (op U))
    -- hU is a hack to get rid of "motive not type correct" in mono_to_basis_le_of_sheaf below
-   (h : ∀ i, f ≫ F.map (hU.rec (opens.le_supr B.f i)).op = g ≫ F.map (hU.rec (opens.le_supr B.f i)).op) :
+   (h : ∀ i, f ≫ F.map (hU.rec (opens.le_supr B.f i)).op
+           = g ≫ F.map (hU.rec (opens.le_supr B.f i)).op) :
    f = g :=
 begin
   subst hU, apply (hF B.f).some.hom_ext,

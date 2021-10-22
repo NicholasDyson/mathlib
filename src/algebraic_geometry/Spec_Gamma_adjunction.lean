@@ -6,7 +6,7 @@ Authors: Junyan Xu
 import algebraic_geometry.Spec
 import algebraic_geometry.ringed_space
 import topology.sheaves.sheaf_condition.basis_le
---import topology.sheaves.sheaf_condition.pairwise_intersections
+import topology.sheaves.sheaf_condition.pairwise_intersections
 
 /-!
 # Adjunction between `Γ` and `Spec`
@@ -23,6 +23,7 @@ open structure_sheaf
 open prime_spectrum
 open topological_space
 open algebraic_geometry.LocallyRingedSpace
+open Top.presheaf
 open Top.presheaf.sheaf_condition
 
 def local_ring.closed_point (R : Type u) [comm_ring R] [local_ring R] :
@@ -56,6 +57,35 @@ lemma to_basic_open_epi (r : R) : epi (to_open R (basic_open r)) :=
   apply is_localization.ring_hom_ext _ h,
   swap, exact localization.is_localization }⟩
 
+lemma is_localization_iso_comp {M : submonoid R} {S T : CommRing}
+  [i : algebra R S] [h : is_localization M S] (f : S ≅ T) :
+  @is_localization _ _ M T _ (f.hom.comp i.to_ring_hom).to_algebra :=
+{ map_units := let hm := h.1 in
+    λ t, is_unit.map f.hom.to_monoid_hom (hm t),
+  surj := let hs := h.2 in λ t, let ⟨⟨r,s⟩,he⟩ := hs (f.inv t) in ⟨⟨r,s⟩, by {
+    convert congr_arg f.hom he, rw [ring_hom.map_mul, ←comp_apply, iso.inv_hom_id], refl}⟩,
+  eq_iff_exists := let he := h.3 in λ t t', by { rw ← he, split,
+    apply f.CommRing_iso_to_ring_equiv.injective, exact congr_arg f.hom } }
+
+instance (r : R) : algebra R ((structure_sheaf R).1.obj (op $ basic_open r)) :=
+  (to_open R (basic_open r)).to_algebra
+
+/- instance of sections of structure sheaf on basic open as localization of the ring -/
+instance (r : R) : is_localization.away r ((structure_sheaf R).1.obj (op $ basic_open r)) :=
+by { convert is_localization_iso_comp _ (basic_open_iso R r).symm, /- can't replace _ by R -/
+  change ring_hom.to_algebra _ = _, congr' 1,
+  exact (localization_to_basic_open R r).symm,
+  exact localization.is_localization }
+
+instance (x : prime_spectrum R) : algebra R ((structure_sheaf R).1.stalk x) :=
+  (to_stalk R x).to_algebra
+
+instance (x : prime_spectrum R) :
+  is_localization.at_prime ((structure_sheaf R).1.stalk x) x.as_ideal :=
+by { convert is_localization_iso_comp _ (stalk_iso R x).symm,
+  change ring_hom.to_algebra _ = _, congr' 1, erw iso.eq_comp_inv,
+  exact to_stalk_comp_stalk_to_fiber_ring_hom R x,
+  exact localization.is_localization }
 
 namespace LocallyRingedSpace
 variable (X : LocallyRingedSpace)
@@ -99,7 +129,8 @@ begin
 end
 
 def to_Γ_Spec_Top : continuous_map X (Spec' (Γ' X)) :=
-  ⟨X.to_Γ_Spec_fun, X.to_Γ_Spec_continuous⟩
+{ to_fun := X.to_Γ_Spec_fun,
+  continuous_to_fun := X.to_Γ_Spec_continuous }
 
 lemma to_Γ_Spec_opens_map_obj_basic_open_eq (r : Γ' X) :
   (opens.map X.to_Γ_Spec_Top).obj (basic_open r) = X.to_RingedSpace.basic_open r
@@ -145,6 +176,58 @@ def to_Γ_Spec_sheaf_basic_opens : idfo _ ⋙ (Spec' (Γ' X)).presheaf
     convert (X.to_Γ_Spec_sheaf_app_prop s _).2 rfl,
     apply eq.symm, apply X.presheaf.map_comp } }
 
+def to_Γ_Spec_sheaf := sheaf_hom.uniq_extn_from_basis
+  ((is_sheaf_iff_is_sheaf_opens_le_cover _).1 (pushforward_sheaf_of_sheaf X.𝒪.2))
+  (basic_opens_is_basis _) X.to_Γ_Spec_sheaf_basic_opens
+
+def to_Γ_Spec_SheafedSpace : X.to_SheafedSpace ⟶ (Spec' (Γ' X)).to_SheafedSpace :=
+{ base := X.to_Γ_Spec_Top,
+  c := X.to_Γ_Spec_sheaf.lift }
+
+lemma to_Γ_Spec_SheafedSpace_app_eq (r : Γ' X) :
+  X.to_Γ_Spec_SheafedSpace.c.app (op (basic_open r)) = X.to_Γ_Spec_sheaf_app r :=
+by change (whisker_left (idfo _) _).app r = _; erw X.to_Γ_Spec_sheaf.fac; refl
+
+def to_Γ_Spec_SheafedSpace_app_prop (r : Γ' X) := by {
+  have h := X.to_Γ_Spec_sheaf_app_prop r,
+  rw ← to_Γ_Spec_SheafedSpace_app_eq at h,
+  exact h }
+
+lemma to_stalk_comm (x : X) : to_stalk _ _ ≫
+  PresheafedSpace.stalk_map X.to_Γ_Spec_SheafedSpace x = X.Γ_to_stalk x :=
+begin
+  rw PresheafedSpace.stalk_map,
+  erw ← to_open_germ _ (basic_open (1 : Γ' X))
+    ⟨X.to_Γ_Spec_fun x, by rw basic_open_one; triv⟩,
+  rw [←category.assoc, category.assoc (to_open _ _)],
+  erw stalk_functor_map_germ,
+  rw [←category.assoc (to_open _ _), (X.to_Γ_Spec_SheafedSpace_app_prop 1 _).2 rfl],
+  unfold Γ_to_stalk, rw ← stalk_pushforward_germ _ X.to_Γ_Spec_Top X.presheaf ⊤,
+  congr' 1, change (X.to_Γ_Spec_Top _* X.presheaf).map le_top.hom.op ≫ _ = _,
+  apply germ_res,
+end
+
+
+def to_Γ_Spec : X ⟶ Spec' (Γ' X) :=
+begin
+  fsplit, exact X.to_Γ_Spec_SheafedSpace,
+  intro x, let p : prime_spectrum (Γ' X) := X.to_Γ_Spec_fun x,
+  fsplit, intros t ht,
+  have h : is_localization.at_prime ((structure_sheaf (Γ' X)).1.stalk p) p.as_ideal,
+  apply_instance,
+  have he' := h.surj, rcases he' t with ⟨⟨r,s⟩,he⟩,
+  have hu := h.map_units,
+  let sm := PresheafedSpace.stalk_map X.to_Γ_Spec_SheafedSpace x,
+  have hr : is_unit (X.Γ_to_stalk x r),
+    apply_fun sm at he,
+    rw [←to_stalk_comm, comp_apply],
+    erw ← he, rw ring_hom.map_mul,
+    apply is_unit.mul ht,
+    exact is_unit.map sm.to_monoid_hom (hu s),
+  rw ← mem_ideal_Γ_to_stalk_iff at hr,
+  have hr' := hu ⟨r,hr⟩, erw ← he at hr',
+  exact is_unit_of_mul_is_unit_left hr',
+end
 
 end LocallyRingedSpace
 
