@@ -71,6 +71,10 @@ variables {m : Type u → Type v} [monad m] [is_lawful_monad m]
 
 open list
 
+/--
+`mpartition p l` returns a pair of lists `(l_true, l_false)` where `l_true` contains the elements of
+`l` for which `p` is true, and `l_false` contains the elements for which `p` is false.
+-/
 def list.mpartition {f : Type → Type} [monad f] {α : Type} (p : α → f bool) :
   list α → f (list α × list α)
 | [] := pure ([],[])

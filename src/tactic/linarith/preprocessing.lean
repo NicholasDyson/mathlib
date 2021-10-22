@@ -158,7 +158,19 @@ match tp with
 | _ := return [h]
 end }
 
+def list.blend_aux {α β} (f : α → list α → β) : list α → list α → list β
+| prev [] := []
+| prev (h::t) := f h (prev++t) :: list.blend_aux (prev++[h]) t
 
+def list.blend {α β} (f : α → list α → β) (l : list α) : list β :=
+list.blend_aux f [] l
+
+def list.mblend_aux {α β} {m : Type → Type} [monad m] (f : α → list α → m β) : list α → list α → m (list β)
+| prev [] := return []
+| prev (h::t) := list.cons <$> (f h (prev++t)) <*> list.mblend_aux (prev++[h]) t
+
+def _root_.list.mblend {α β} {m : Type → Type} [monad m] (f : α → list α → m β) (l : list α) : m (list β) :=
+list.mblend_aux f [] l
 /--
 If `h` is an equality or inequality between natural numbers,
 `nat_to_int` lifts this inequality to the integers.
@@ -170,13 +182,15 @@ meta def nat_to_int : global_preprocessor :=
   transform := λ l,
 -- we lock the tactic state here because a `simplify` call inside of
 -- `zify_proof` corrupts the tactic state when run under `io.run_tactic`.
-do l ← lock_tactic_state $ l.mmap $ λ h,
-         infer_type h >>= guardb ∘ is_nat_prop >> zify_proof [] h <|> return h,
+do (nats, others) ← l.mpartition (λ h, is_nat_prop <$> infer_type h),
+   zified_nats ← lock_tactic_state $ nats.mblend (λ h l, zify_proof (l.map (simp_arg_type.expr ∘ pexpr.of_expr)) h <|> return h),
+  --  l ← lock_tactic_state $ l.mmap $ λ h,
+  --        infer_type h >>= guardb ∘ is_nat_prop >> zify_proof [] h <|> return h,
+  let l := zified_nats ++ others,
    nonnegs ← l.mfoldl (λ (es : expr_set) h, do
      (a, b) ← infer_type h >>= get_rel_sides,
      return $ (es.insert_list (get_nat_comps a)).insert_list (get_nat_comps b)) mk_rb_set,
    (++) l <$> nonnegs.to_list.mmap mk_coe_nat_nonneg_prf }
-
 
 /-- `strengthen_strict_int h` turns a proof `h` of a strict integer inequality `t1 < t2`
 into a proof of `t1 ≤ t2 + 1`. -/
